@@ -287,6 +287,14 @@ def generate_html_report(analysis: dict, market_data: dict) -> str:
     confidence = analysis.get("tomorrow_strategy", {}).get("confidence", 50)
     sentiment  = analysis.get("market_overview", {}).get("sentiment_score", 50)
 
+    # f-string 안에서 dict 리터럴 {{}} 충돌 방지: 미리 추출
+    kospi_data = market_data.get("KOSPI", {})
+    kospi_close = kospi_data.get("close", "—")
+    kospi_change = kospi_data.get("change_pct", 0)
+    kospi_change_color = "#059669" if kospi_change >= 0 else "#ef4444"
+    kospi_change_sign = "+" if kospi_change >= 0 else ""
+    market_sentiment_str = analysis.get("market_overview", {}).get("market_sentiment", "—")
+
     # Key factors HTML
     factors_html = ""
     for f in analysis.get("key_factors", []):
@@ -380,13 +388,13 @@ def generate_html_report(analysis: dict, market_data: dict) -> str:
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px;">
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px;text-align:center;">
       <div style="font-size:11px;color:#6b7280;">KOSPI</div>
-      <div class="mono" style="font-size:18px;font-weight:700;color:#111827;">{market_data.get("KOSPI",{{}}).get("close","—")}</div>
-      <div class="mono" style="font-size:12px;color:{'#059669' if market_data.get('KOSPI',{{}}).get('change_pct',0)>=0 else '#ef4444'};">{'+' if market_data.get('KOSPI',{{}}).get('change_pct',0)>=0 else ''}{market_data.get("KOSPI",{{}}).get("change_pct","—")}%</div>
+      <div class="mono" style="font-size:18px;font-weight:700;color:#111827;">{kospi_close}</div>
+      <div class="mono" style="font-size:12px;color:{kospi_change_color};">{kospi_change_sign}{kospi_change}%</div>
     </div>
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px;text-align:center;">
       <div style="font-size:11px;color:#6b7280;">심리지수</div>
       <div class="mono" style="font-size:18px;font-weight:700;color:#111827;">{sentiment}</div>
-      <div style="font-size:12px;color:#6b7280;">{analysis.get("market_overview",{{}}).get("market_sentiment","—")}</div>
+      <div style="font-size:12px;color:#6b7280;">{market_sentiment_str}</div>
     </div>
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px;text-align:center;">
       <div style="font-size:11px;color:#6b7280;">예상 지지</div>
