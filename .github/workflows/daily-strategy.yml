@@ -1,0 +1,88 @@
+name: KOSPI Strategy — Daily Report
+
+on:
+  schedule:
+    # 일~목 KST 21:00 = UTC 12:00 (다음 거래일 대응전략)
+    - cron: "0 12 * * 0-4"
+  workflow_dispatch:
+    inputs:
+      debug_mode:
+        description: "Debug 모드 (상세 로그)"
+        required: false
+        default: "false"
+
+permissions:
+  contents: write
+
+jobs:
+  generate-strategy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # ─── 1. 코드 체크아웃 ───────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 2
+
+      # ─── 2. Python 환경 설정 ────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      # ─── 3. 의존성 설치 ─────────────────────────────────────────────────
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ─── 4. 파이프라인 실행 ─────────────────────────────────────────────
+      - name: Run KOSPI Strategy pipeline
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_TOKEN:    ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID:  ${{ secrets.TELEGRAM_CHAT_ID }}
+          TZ: "Asia/Seoul"
+          PYTHONPATH: ${{ github.workspace }}
+          DEBUG: ${{ github.event.inputs.debug_mode || 'false' }}
+        run: |
+          python scripts/run_strategy.py
+
+      # ─── 5. 결과 커밋 & 푸시 ────────────────────────────────────────────
+      - name: Commit and push report
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/ || true
+          git add reports/ || true
+          git add data/history/ || true
+          git status --short
+          git diff --staged --quiet || \
+            git commit -m "chore: strategy report $(date +'%Y-%m-%d' --date='TZ=\"Asia/Seoul\" now')"
+          git push
+
+      # ─── 6. 실패 시 Telegram 알림 ───────────────────────────────────────
+      - name: Notify failure via Telegram
+        if: failure()
+        env:
+          TELEGRAM_TOKEN:   ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python - <<'PYEOF'
+          import os, requests, sys
+          token    = os.environ.get("TELEGRAM_TOKEN", "")
+          chat_id  = os.environ.get("TELEGRAM_CHAT_ID", "")
+          if not token or not chat_id:
+              print("Telegram 설정 없음 — 알림 건너뜀")
+              sys.exit(0)
+          msg = "❌ 내일 코스피 대응전략 생성 실패!\nGitHub Actions 로그를 확인해 주세요.\nhttps://github.com/${{ github.repository }}/actions"
+          requests.post(
+              f"https://api.telegram.org/bot{token}/sendMessage",
+              json={"chat_id": chat_id, "text": msg},
+              timeout=10,
+          )
+          PYEOF

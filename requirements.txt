@@ -1,0 +1,15 @@
+# LLM
+anthropic>=0.40.0
+
+# 데이터 수집
+yfinance>=0.2.37
+
+# 데이터 처리
+pandas>=2.1.0
+numpy>=1.26.0
+
+# HTTP
+requests>=2.31.0
+
+# 유틸
+python-dotenv>=1.0.0
