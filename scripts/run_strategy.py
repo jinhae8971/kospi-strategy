@@ -265,7 +265,28 @@ def analyze_with_claude(market_data: dict, api_key: str) -> dict:
     if raw.startswith("```"):
         raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
 
-    analysis = json.loads(raw)
+    # JSON 파싱 (AI 응답 오류 자동 보정)
+    try:
+        analysis = json.loads(raw)
+    except json.JSONDecodeError:
+        import re
+        cleaned = raw
+        # trailing comma 제거: ,\s*} → }  ,\s*] → ]
+        cleaned = re.sub(r',\s*([}\]])', r'\1', cleaned)
+        # 제어 문자 제거
+        cleaned = re.sub(r'[\x00-\x1f\x7f]', ' ', cleaned)
+        try:
+            analysis = json.loads(cleaned)
+            logger.warning("JSON 자동 보정 후 파싱 성공")
+        except json.JSONDecodeError:
+            # { } 블록 재추출 시도
+            match = re.search(r'\{[\s\S]*\}', cleaned)
+            if match:
+                analysis = json.loads(match.group())
+                logger.warning("JSON 블록 재추출 후 파싱 성공")
+            else:
+                raise
+
     logger.info("Claude AI 분석 완료")
     return analysis
 
