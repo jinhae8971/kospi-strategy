@@ -11,6 +11,14 @@ run_strategy.py — 내일 코스피 대응전략 파이프라인
 
 스케줄: 일~목 KST 21:00 (다음 거래일 대응전략)
 """
+# === anthropic_usage_reporter (auto-injected) ===
+try:
+    from anthropic_usage_reporter import patch_anthropic_client
+    patch_anthropic_client(workflow="kospi-strategy-daily")
+except Exception:
+    pass
+# === end auto-injection ===
+
 import json
 import logging
 import os
